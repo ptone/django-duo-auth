@@ -1,4 +1,5 @@
 from django.contrib import admin
-# from duo_auth.models import MyModel
+from duo_auth.models import VerificationDetails
 
-# admin.site.register(MyModel, MyModelAdmin)
+admin.site.register(VerificationDetails)
+

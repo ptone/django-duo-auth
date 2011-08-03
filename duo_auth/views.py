@@ -17,34 +17,45 @@ def generate_passcode(request):
     def fail():
         return HttpResponse(simplejson.dumps({'passcode_enabled': False}), mimetype='application/json')
 
-    if not request.is_ajax():
-        fail()
+    # if not request.is_ajax():
+        # return fail()
     if not twilio_id and twilio_token:
-        fail()
+        return fail()
     if request.method != "GET":
-        fail()
+        return fail()
     if 'username' not in request.GET:
-        fail()
+        return fail()
     try:
-        user = User.objects.get(username=request.GET['username'])
+        print request.GET['username']
+        submitted_uname = request.GET['username']
+        user = User.objects.get(username=submitted_uname)
+        print submitted_uname
+
     except User.DoesNotExist:
-        fail()
+        return fail()
+    print "have user"
+    print user
     try:
         verification_details = user.two_factor_details
     except VerificationDetails.DoesNotExist:
-        fail()
+        return fail()
     verification_age_limit = getattr(settings, 'PASSCODE_AGE_LIMIT', 30)
     if not verification_details.last_verified + datetime.timedelta(days=verification_age_limit) < datetime.datetime.utcnow():
-        fail()
+        return fail()
     phone = verification_details.phone
     if phone == "":
-        fail()
+        return fail()
     passcode_length = getattr(settings, 'PASSCODE_LENGTH', 4)
-    verification_details.passcode = User.objects.make_random_password(
+    verification_details.challenge_passcode = User.objects.make_random_password(
             length=passcode_length)
+    print verification_details.challenge_passcode
+    print phone
+    print verification_details.id
+
     verification_details.save()
+    print 'saved'
     client = TwilioRestClient(twilio_id, twilio_token)
     # TODO need to check for and use setting: TWILIO_DEFAULT_CALLERID
-    message = client.sms.messages.create(to=phone, from_="+15555555555",
-        body="your passcode is {0}".format(verification_details.passcode ))
+    message = client.sms.messages.create(to=phone, from_="+14155992671",
+        body="your passcode is {0}".format(verification_details.challenge_passcode ))
     return HttpResponse(simplejson.dumps({'passcode_enabled': True}), mimetype='application/json')

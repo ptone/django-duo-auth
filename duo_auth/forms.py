@@ -1,27 +1,36 @@
 from django import forms
+from django.contrib.auth import authenticate
 from django.contrib.auth.forms import AuthenticationForm
+from django.contrib.auth.models import User
+from django.utils.translation import ugettext_lazy as _
 
 from duo_auth.models import VerificationDetails
 
 class DuoAuthForm(AuthenticationForm):
     passcode = forms.CharField(label="Passcode", required=False)
-    passcode_included = forms.CharField(required=False, 
+    passcode_included = forms.CharField(required=False,
             widget=forms.HiddenInput, initial='no')
 
     def clean(self):
-        # TODO can't really use super, as can't prematurely call authenticate?
-        super(DuoAuthForm, self).clean(self)
-        if self.cleaned_data.get('passcode_included') == 'yes':
-            try:
-                user = self.get_user()
+        username = self.cleaned_data.get('username')
+        password = self.cleaned_data.get('password')
+        passcode = self.cleaned_data.get('passcode')
 
-                verification = user.two_factor_details
-            except VerificationDetails.DoesNotExist:
-                # TODO should this be a failing error - it is really just an
-                # inconsistancy
-                raise forms.ValidationError("Passcode not required for this user")
-            if self.cleaned_data.get('passcode') != verification.passcode:
-                raise forms.ValidationError("Invalid Passcode")
-                # date reset happens in authentication func of backend
+        if username and password:
+            if self.cleaned_data.get('passcode_included') == 'yes':
+                self.user_cache = authenticate(
+                        username=username,
+                        password=password,
+                        passcode=passcode)
+            else:
+                self.user_cache = authenticate(
+                        username=username,
+                        password=password)
+            if self.user_cache is None:
+                # TODO add in note if passcode was required
+                raise forms.ValidationError(_("Please enter a correct username and password. Note that both fields are case-sensitive."))
+            elif not self.user_cache.is_active:
+                raise forms.ValidationError(_("This account is inactive."))
+        self.check_for_test_cookie()
         return self.cleaned_data
 
