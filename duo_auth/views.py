@@ -19,7 +19,7 @@ def generate_passcode(request):
 
     # if not request.is_ajax():
         # return fail()
-    if not twilio_id and twilio_token:
+    if not (twilio_id and twilio_token):
         return fail()
     if request.method != "GET":
         return fail()
